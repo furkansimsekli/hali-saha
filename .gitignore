@@ -1,0 +1,5 @@
+node_modules/
+
+# whatsapp-web.js files
+.wwebjs_auth/
+.wwebjs_cache/
