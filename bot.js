@@ -5,11 +5,16 @@ const axios = require('axios');
 require('dotenv').config();
 
 
+const SESSION_NAME = process.env.SESSION_NAME;
+const AUTH_PATH = process.env.AUTH_PATH;
 const TARGET_CHAT = process.env.TARGET_CHAT;
 const ITEM = process.env.ITEM;
 
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({
+        clientId: SESSION_NAME,
+        dataPath: AUTH_PATH
+    }),
     puppeteer: {
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     }
