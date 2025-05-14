@@ -1,3 +1,4 @@
+import json
 import math
 import os
 import sqlite3
@@ -216,6 +217,56 @@ class EloSystem:
             except sqlite3.IntegrityError:
                 print_error("New name already exists.")
 
+    def import_history(self, file_path):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception as e:
+            print_error(f"Invalid JSON file: {e}")
+            return
+
+        if not self.__validate_import_file(data):
+            return
+
+        # Add players
+        for player in data.get('players', []):
+            self.add_player(player['name'], player['score'])
+
+        # Add matches
+        for match in data.get('matches', []):
+            yellow_team = [name.strip() for name in match['yellow-team'].split(',')]
+            white_team = [name.strip() for name in match['white-team'].split(',')]
+            yellow_score = int(match['yellow-score'])
+            white_score = int(match['white-score'])
+            self.create_game(yellow_team, white_team, yellow_score, white_score)
+
+        print_success("History imported.")
+
+    def __validate_import_file(self, data: dict):
+        if not isinstance(data, dict) or "players" not in data or "matches" not in data:
+            print_error("JSON must contain 'players' and 'matches' keys.")
+            return False
+
+        if not isinstance(data["players"], list) or not all(isinstance(p, dict) and "name" in p and "score" in p for p in data["players"]):
+            print_error("Each player must be a dict with 'name' and 'score'.")
+            return False
+
+        if not isinstance(data["matches"], list):
+            print_error("'matches' must be a list.")
+            return False
+
+        for match in data["matches"]:
+            if not isinstance(match, dict):
+                print_error("Each match must be a dictionary.")
+                return False
+            required_keys = {"yellow-team", "white-team", "yellow-score", "white-score"}
+            if not required_keys.issubset(match.keys()):
+                print_error(f"Match entry missing required keys: {required_keys}")
+                return False
+
+        return True
+
+
 class Menu:
     def __init__(self, system):
         self.system = system
@@ -228,6 +279,7 @@ class Menu:
             '6': ('Auto Match Teams', self.auto_match_teams),
             '7': ('Show Game History', self.show_game_history),
             '8': ('Rename Player', self.rename_player),
+            '9': ('Import History', self.import_history),
             'q': ('Exit', self.exit)
         }
 
@@ -299,6 +351,10 @@ class Menu:
         old_name = prompt("Current player name:")
         new_name = prompt("New player name:")
         self.system.rename_player(old_name, new_name)
+
+    def import_history(self):
+        file_path = prompt("File path (json):")
+        self.system.import_history(file_path)
 
     def exit(self):
         print("Exiting the system.")
