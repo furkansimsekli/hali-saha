@@ -120,12 +120,15 @@ class EloSystem:
         yellow_objs = self.get_players_by_names(yellow_players)
         white_objs = self.get_players_by_names(white_players)
 
+        # Calculate the average ELO of each team
         yellow_avg = sum(p.elo for p in yellow_objs) / len(yellow_objs)
         white_avg = sum(p.elo for p in white_objs) / len(white_objs)
 
+        # Calculate expected score for each team
         expected_yellow = 1 / (1 + 10 ** ((white_avg - yellow_avg) / 400))
         expected_white = 1 - expected_yellow
 
+        # Determine actual outcomes
         if yellow_score > white_score:
             actual_yellow, actual_white = 1, 0
         elif yellow_score < white_score:
@@ -133,35 +136,46 @@ class EloSystem:
         else:
             actual_yellow = actual_white = 0.5
 
+        # Game margin (used for scaling the Elo adjustment)
         margin = abs(yellow_score - white_score)
         multiplier = math.log(margin + 1) * (2.2 / ((abs(yellow_avg - white_avg) * 0.001) + 2.2))
 
         with sqlite3.connect(DB_NAME) as conn:
             c = conn.cursor()
 
+            # Update ELO for Yellow team
             for p in yellow_objs:
-                delta = K_FACTOR * multiplier * (actual_yellow - expected_yellow)
+                expected_result = 1 / (1 + 10 ** ((white_avg - p.elo) / 400))
+                delta = K_FACTOR * multiplier * (actual_yellow - expected_result)
                 new_elo = p.elo + delta
+                delta_str = f"+{delta:.2f}" if delta > 0 else f"{delta:.2f}"
+                print(f"{p.name}: {delta_str}")
                 c.execute("UPDATE players SET elo = ? WHERE id = ?", (new_elo, p.id))
 
+            # Update ELO for White team
             for p in white_objs:
-                delta = K_FACTOR * multiplier * (actual_white - expected_white)
+                expected_result = 1 / (1 + 10 ** ((yellow_avg - p.elo) / 400))
+                delta = K_FACTOR * multiplier * (actual_white - expected_result)
                 new_elo = p.elo + delta
+                delta_str = f"+{delta:.2f}" if delta > 0 else f"{delta:.2f}"
+                print(f"{p.name}: {delta_str}")
                 c.execute("UPDATE players SET elo = ? WHERE id = ?", (new_elo, p.id))
 
+            # Insert game record
             c.execute("INSERT INTO games (yellow_score, white_score, created_at) VALUES (?, ?, ?)",
-                      (yellow_score, white_score, created_at))
+                    (yellow_score, white_score, created_at))
             game_id = c.lastrowid
 
+            # Insert game players into the game_players table
             for name in yellow_players:
                 c.execute("INSERT INTO game_players (game_id, player_name, team) VALUES (?, ?, 'yellow')",
-                          (game_id, name))
+                        (game_id, name))
             for name in white_players:
                 c.execute("INSERT INTO game_players (game_id, player_name, team) VALUES (?, ?, 'white')",
-                          (game_id, name))
+                        (game_id, name))
 
             conn.commit()
-            print_success("Game created and ELOs updated.")
+
 
     def auto_match(self, active_names):
         from random import shuffle

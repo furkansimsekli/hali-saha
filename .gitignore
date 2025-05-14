@@ -7,3 +7,4 @@ node_modules/
 # content
 *.db
 *.db.backup
+*.json
