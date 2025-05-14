@@ -1,14 +1,25 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
 const axios = require('axios');
+const fs = require('fs');
+const qrcode = require('qrcode-terminal');
+const toml = require('toml')
 
 require('dotenv').config();
 
 
-const SESSION_NAME = process.env.SESSION_NAME;
-const AUTH_PATH = process.env.AUTH_PATH;
-const TARGET_CHAT = process.env.TARGET_CHAT;
-const ITEM = process.env.ITEM;
+const CONFIG_FILE = process.env.CONFIG_FILE || path.join(__dirname, 'config.toml');
+
+if (!fs.existsSync(CONFIG_FILE)) {
+    console.error(`ERROR: Config file not found at ${CONFIG_FILE}`);
+    process.exit(1);
+}
+
+const config = toml.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+
+const SESSION_NAME = config.SESSION_NAME;
+const AUTH_PATH = config.AUTH_PATH;
+const TARGET_CHAT = config.TARGET_CHAT;
+const ITEM = config.ITEM;
 
 const client = new Client({
     authStrategy: new LocalAuth({
